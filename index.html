@@ -3,18 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <title>Agent X HQ</title>
+  <!-- ✅ Include Phaser -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; color: #fff; }
-    #login {
-      position: absolute; top: 40%; left: 50%;
-      transform: translate(-50%, -50%); text-align: center;
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+      color: #fff;
     }
-    #gameContainer { display: none; }
+    #login {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    #gameContainer {
+      display: none;
+    }
     #infoBox {
-      position: absolute; top: 10px; right: 10px;
-      background: rgba(0,0,0,0.7); padding: 10px;
-      border: 1px solid #fff; font-family: monospace;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border: 1px solid #fff;
+      font-family: monospace;
+    }
+    button {
+      padding: 12px 24px;
+      font-size: 1em;
     }
   </style>
 </head>
@@ -27,10 +46,7 @@
   <div id="infoBox" style="display: none;"></div>
   <div id="gameContainer"></div>
 
-  <!-- ✅ Firebase JS SDK (needed for Realtime DB client access) -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
-
-  <script src="main.js"></script>
+  <!-- ✅ Load your main.js with ES Module type -->
+  <script type="module" src="main.js"></script>
 </body>
 </html>
