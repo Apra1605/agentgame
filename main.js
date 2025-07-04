@@ -5,13 +5,13 @@ const SCOPES = ['identify'];
 
 // ✅ Your Firebase config:
 const firebaseConfig = {
-  apiKey: "YOUR_FIREBASE_API_KEY",
-  authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_FIREBASE_PROJECT.firebaseio.com",
-  projectId: "YOUR_FIREBASE_PROJECT_ID",
-  storageBucket: "YOUR_FIREBASE_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDmnk1IjJQQc9ksYluffJ_o0i4U_DSlTQ4",
+  authDomain: "newagent-lfgn.firebaseapp.com",
+  databaseURL: "https://newagent-lfgn-default-rtdb.firebaseio.com",
+  projectId: "newagent-lfgn",
+  storageBucket: "newagent-lfgn.appspot.com",
+  messagingSenderId: "363511493070",
+  appId: "1:363511493070:web:81f113614b622963f0fb9f"
 };
 
 // ✅ Init Firebase
