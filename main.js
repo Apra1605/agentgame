@@ -1,6 +1,6 @@
 // ✅ Your Discord App details:
-const CLIENT_ID = 'YOUR_DISCORD_CLIENT_ID';
-const REDIRECT_URI = 'https://<username>.github.io/<repo>/';
+const CLIENT_ID = '1389447739737378886';
+const REDIRECT_URI = 'https://apra1605.github.io/agentgame/';
 const SCOPES = ['identify'];
 
 // ✅ Your Firebase config:
