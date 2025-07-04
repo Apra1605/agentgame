@@ -1,38 +1,76 @@
-document.getElementById('submitBtn').onclick = async () => {
-  const username = document.getElementById('usernameInput').value.trim();
-  if (!username) {
-    alert('Please enter your Discord username.');
-    return;
-  }
+// ✅ Your Discord App details:
+const CLIENT_ID = 'YOUR_DISCORD_CLIENT_ID';
+const REDIRECT_URI = 'https://<username>.github.io/<repo>/';
+const SCOPES = ['identify'];
 
-  // Resolve Discord ID
-  const res = await fetch(`https://YOUR-BOT-APP.herokuapp.com/api/resolveUser?username=${encodeURIComponent(username)}`);
-  if (!res.ok) {
-    alert('Could not find that username in Discord.');
-    return;
-  }
-
-  const { id: userId } = await res.json();
-  console.log('Resolved Discord ID:', userId);
-
-  // Get or create user data
-  const checkRes = await fetch(`https://YOUR-BOT-APP.herokuapp.com/api/getOrCreateUser?userId=${userId}`);
-  const userData = await checkRes.json();
-  console.log('User Data:', userData);
-
-  // Show user info
-  const infoBox = document.getElementById('infoBox');
-  infoBox.innerText = `BALANCE: ${userData.balance}\nLEVEL: ${userData.level}\nXP: ${userData.xp}`;
-  infoBox.style.display = 'block';
-
-  // Hide form, show game
-  document.getElementById('usernameForm').style.display = 'none';
-  document.getElementById('gameContainer').style.display = 'block';
-
-  startGame(userId, infoBox);
+// ✅ Your Firebase config:
+const firebaseConfig = {
+  apiKey: "YOUR_FIREBASE_API_KEY",
+  authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_FIREBASE_PROJECT.firebaseio.com",
+  projectId: "YOUR_FIREBASE_PROJECT_ID",
+  storageBucket: "YOUR_FIREBASE_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
-function startGame(userId, infoBox) {
+// ✅ Init Firebase
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+document.getElementById('loginBtn').onclick = () => {
+  const oauthURL = `https://discord.com/api/oauth2/authorize` +
+    `?client_id=${CLIENT_ID}` +
+    `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+    `&response_type=token` +
+    `&scope=${SCOPES.join('%20')}`;
+  window.location.href = oauthURL;
+};
+
+window.onload = async () => {
+  const hash = window.location.hash;
+  if (hash.includes('access_token')) {
+    const params = new URLSearchParams(hash.substr(1));
+    const accessToken = params.get('access_token');
+
+    const userRes = await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const user = await userRes.json();
+    const userId = user.id;
+    const username = `${user.username}`;
+
+    console.log('Logged in:', userId, username);
+
+    // Hide login, show game UI
+    document.getElementById('login').style.display = 'none';
+
+    const infoBox = document.getElementById('infoBox');
+    infoBox.innerText = `Logged in as: ${username}\nID: ${userId}`;
+    infoBox.style.display = 'block';
+
+    // Check or create user in Firebase
+    const userRef = ref(db, `users/${userId}`);
+    const snapshot = await get(userRef);
+    let userData;
+
+    if (snapshot.exists()) {
+      userData = snapshot.val();
+    } else {
+      userData = { xp: 0, balance: 0, level: 1 };
+      await set(userRef, userData);
+    }
+
+    infoBox.innerText = `User: ${username}\nXP: ${userData.xp}\nBalance: ${userData.balance}\nLevel: ${userData.level}`;
+
+    startGame(userId, infoBox, userData);
+  }
+};
+
+function startGame(userId, infoBox, userData) {
   const config = {
     type: Phaser.AUTO,
     width: 800,
@@ -56,16 +94,25 @@ function startGame(userId, infoBox) {
     const completeBtn = this.add.text(20, 20, '✅ Complete Mission', { fill: '#0f0' })
       .setInteractive()
       .on('pointerdown', async () => {
-        const res = await fetch('https://YOUR-BOT-APP.herokuapp.com/api/updateXP', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, xp: 10, balance: 5 })
-        });
-        const updated = await res.json();
+        const userRef = ref(db, `users/${userId}`);
+        const newXP = userData.xp + 10;
+        const newBalance = userData.balance + 5;
+        const newLevel = Math.floor(newXP / 100) + 1;
 
-        // Update infoBox
-        infoBox.innerText = `BALANCE: ${updated.balance}\nLEVEL: ${updated.level}\nXP: ${updated.xp}`;
+        userData.xp = newXP;
+        userData.balance = newBalance;
+        userData.level = newLevel;
+
+        await update(userRef, {
+          xp: newXP,
+          balance: newBalance,
+          level: newLevel
+        });
+
+        infoBox.innerText = `User: ${userId}\nXP: ${newXP}\nBalance: ${newBalance}\nLevel: ${newLevel}`;
       });
+
+    document.getElementById('gameContainer').style.display = 'block';
   }
 
   function update() {
