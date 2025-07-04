@@ -1,9 +1,12 @@
-// ✅ Your Discord App details:
+// ✅ Debug — prove the script is running
+console.log("✅ main.js is running");
+
+// ✅ Your Discord App details
 const CLIENT_ID = '1389447739737378886';
 const REDIRECT_URI = 'https://apra1605.github.io/agentgame/';
 const SCOPES = ['identify'];
 
-// ✅ Your Firebase config:
+// ✅ Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyDmnk1IjJQQc9ksYluffJ_o0i4U_DSlTQ4",
   authDomain: "newagent-lfgn.firebaseapp.com",
@@ -21,29 +24,49 @@ import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/fire
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-document.getElementById('loginBtn').onclick = () => {
-  const oauthURL = `https://discord.com/api/oauth2/authorize` +
-    `?client_id=${CLIENT_ID}` +
-    `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-    `&response_type=token` +
-    `&scope=${SCOPES.join('%20')}`;
-  window.location.href = oauthURL;
-};
+// ✅ Attach click handler to Sign In button
+const loginBtn = document.getElementById('loginBtn');
+
+if (loginBtn) {
+  loginBtn.onclick = () => {
+    console.log("✅ Sign In button clicked!");
+
+    const oauthURL = `https://discord.com/api/oauth2/authorize` +
+      `?client_id=${CLIENT_ID}` +
+      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+      `&response_type=token` +
+      `&scope=${SCOPES.join('%20')}`;
+
+    console.log("✅ OAuth URL:", oauthURL);
+
+    window.location.href = oauthURL;
+  };
+} else {
+  console.error("❌ Could not find button with id='loginBtn'.");
+}
 
 window.onload = async () => {
+  console.log("✅ Window loaded. Checking for #access_token in URL...");
+
   const hash = window.location.hash;
+
   if (hash.includes('access_token')) {
+    console.log("✅ Access token found in URL!");
+
     const params = new URLSearchParams(hash.substr(1));
     const accessToken = params.get('access_token');
+
+    console.log("✅ Using access token:", accessToken);
 
     const userRes = await fetch('https://discord.com/api/users/@me', {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
+
     const user = await userRes.json();
     const userId = user.id;
     const username = `${user.username}`;
 
-    console.log('Logged in:', userId, username);
+    console.log(`✅ Logged in as: ${username} (${userId})`);
 
     // Hide login, show game UI
     document.getElementById('login').style.display = 'none';
@@ -58,8 +81,10 @@ window.onload = async () => {
     let userData;
 
     if (snapshot.exists()) {
+      console.log("✅ Existing user found in Firebase:", snapshot.val());
       userData = snapshot.val();
     } else {
+      console.log("✅ Creating new user in Firebase...");
       userData = { xp: 0, balance: 0, level: 1 };
       await set(userRef, userData);
     }
@@ -67,10 +92,14 @@ window.onload = async () => {
     infoBox.innerText = `User: ${username}\nXP: ${userData.xp}\nBalance: ${userData.balance}\nLevel: ${userData.level}`;
 
     startGame(userId, infoBox, userData);
+  } else {
+    console.log("✅ No access_token in URL yet.");
   }
 };
 
 function startGame(userId, infoBox, userData) {
+  console.log("✅ Starting Phaser game...");
+
   const config = {
     type: Phaser.AUTO,
     width: 800,
@@ -110,6 +139,8 @@ function startGame(userId, infoBox, userData) {
         });
 
         infoBox.innerText = `User: ${userId}\nXP: ${newXP}\nBalance: ${newBalance}\nLevel: ${newLevel}`;
+
+        console.log("✅ Mission complete — Firebase updated!");
       });
 
     document.getElementById('gameContainer').style.display = 'block';
