@@ -1,4 +1,3 @@
-// ✅ Debug — prove the script is running
 console.log("✅ main.js is running");
 
 // ✅ Your Discord App details
@@ -24,25 +23,35 @@ import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/fire
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// ✅ Attach click handler to Sign In button
-const loginBtn = document.getElementById('loginBtn');
-
-if (loginBtn) {
-  loginBtn.onclick = () => {
-    console.log("✅ Sign In button clicked!");
-
-    const oauthURL = `https://discord.com/api/oauth2/authorize` +
-      `?client_id=${CLIENT_ID}` +
-      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-      `&response_type=token` +
-      `&scope=${SCOPES.join('%20')}`;
-
-    console.log("✅ OAuth URL:", oauthURL);
-
-    window.location.href = oauthURL;
-  };
+// ✅ Check if inside an iframe (like Discord embed)
+if (window.self !== window.top) {
+  console.log("✅ Detected inside an iframe. Showing Open in Browser message.");
+  document.getElementById('login').innerHTML = `
+    <h2>This game needs to open in your browser</h2>
+    <a href="${REDIRECT_URI}" target="_blank" style="color:lime; font-size:1.2em;">Open in Browser</a>
+  `;
 } else {
-  console.error("❌ Could not find button with id='loginBtn'.");
+  // ✅ Normal mode — attach Sign In button handler
+  const loginBtn = document.getElementById('loginBtn');
+
+  if (loginBtn) {
+    loginBtn.onclick = () => {
+      console.log("✅ Sign In button clicked!");
+
+      const oauthURL = `https://discord.com/api/oauth2/authorize` +
+        `?client_id=${CLIENT_ID}` +
+        `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+        `&response_type=token` +
+        `&scope=${SCOPES.join('%20')}`;
+
+      console.log("✅ OAuth URL:", oauthURL);
+
+      // ✅ Open in new tab
+      window.open(oauthURL, '_blank');
+    };
+  } else {
+    console.error("❌ Could not find button with id='loginBtn'.");
+  }
 }
 
 window.onload = async () => {
