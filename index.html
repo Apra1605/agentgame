@@ -6,10 +6,9 @@
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
   <style>
     body { margin: 0; overflow: hidden; background: #000; color: #fff; }
-    #usernameForm {
+    #login {
       position: absolute; top: 40%; left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
+      transform: translate(-50%, -50%); text-align: center;
     }
     #gameContainer { display: none; }
     #infoBox {
@@ -17,19 +16,20 @@
       background: rgba(0,0,0,0.7); padding: 10px;
       border: 1px solid #fff; font-family: monospace;
     }
-    input { padding: 10px; }
-    button { padding: 10px; }
   </style>
 </head>
 <body>
-  <div id="usernameForm">
-    <h2>Enter your Discord username</h2>
-    <input type="text" id="usernameInput" placeholder="e.g. apra16 or Krish#1234" />
-    <button id="submitBtn">Enter HQ</button>
+  <div id="login">
+    <h2>Sign in with Discord to play</h2>
+    <button id="loginBtn">Sign In</button>
   </div>
 
   <div id="infoBox" style="display: none;"></div>
   <div id="gameContainer"></div>
+
+  <!-- ✅ Firebase JS SDK (needed for Realtime DB client access) -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
 
   <script src="main.js"></script>
 </body>
