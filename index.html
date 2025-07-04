@@ -1,141 +1,36 @@
-// ✅ index.js — final version with resolveUser & getOrCreateUser
-
-import 'dotenv/config';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
-import express from 'express';
-import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
-import { db, ref, get, set, update } from './firebase.js';
-
-// ✅ Discord bot setup
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const bot = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildMessageReactions,
-    GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.GuildPresences
-  ],
-  partials: [Partials.Message, Partials.Channel, Partials.Reaction]
-});
-
-bot.commands = new Collection();
-bot.cooldowns = new Collection();
-bot.commandArray = [];
-bot.buttons = new Collection();
-bot.selectMenus = new Collection();
-bot.modals = new Collection();
-
-// ✅ Load handlers
-const handlersPath = path.join(__dirname, 'functions/handlers');
-const handlerFiles = fs.readdirSync(handlersPath).filter(file => file.endsWith('.js'));
-for (const file of handlerFiles) {
-  const handler = await import(pathToFileURL(path.join(handlersPath, file)));
-  handler.default(bot);
-}
-
-await bot.handleCommands();
-await bot.handleEvents();
-await bot.handleComponents();
-
-// ✅ Express server
-const app = express();
-app.use(express.json());
-
-// ✅ ================================
-// ✅ /api/resolveUser
-// ✅ Supports username#1234 OR username only
-// ✅ ================================
-app.get('/api/resolveUser', async (req, res) => {
-  const { username } = req.query;
-  if (!username) return res.status(400).send('Missing username.');
-
-  try {
-    for (const [guildId, guild] of bot.guilds.cache) {
-      const members = await guild.members.fetch();
-
-      const match = members.find(member => {
-        const legacy = `${member.user.username}#${member.user.discriminator}`;
-        const modern = `${member.user.username}`;
-        return username === legacy || username === modern;
-      });
-
-      if (match) {
-        return res.json({ id: match.user.id });
-      }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Agent X HQ</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; color: #fff; }
+    #usernameForm {
+      position: absolute; top: 40%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
     }
-    res.status(404).send('User not found.');
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Error resolving user.');
-  }
-});
+    #gameContainer { display: none; }
+    #infoBox {
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(0,0,0,0.7); padding: 10px;
+      border: 1px solid #fff; font-family: monospace;
+    }
+    input { padding: 10px; }
+    button { padding: 10px; }
+  </style>
+</head>
+<body>
+  <div id="usernameForm">
+    <h2>Enter your Discord username</h2>
+    <input type="text" id="usernameInput" placeholder="e.g. apra16 or Krish#1234" />
+    <button id="submitBtn">Enter HQ</button>
+  </div>
 
-// ✅ ================================
-// ✅ /api/getOrCreateUser
-// ✅ Checks Firebase for existing data or creates defaults
-// ✅ ================================
-app.get('/api/getOrCreateUser', async (req, res) => {
-  const { userId } = req.query;
-  if (!userId) return res.status(400).send('Missing userId.');
+  <div id="infoBox" style="display: none;"></div>
+  <div id="gameContainer"></div>
 
-  const userRef = ref(db, `users/${userId}`);
-  const snapshot = await get(userRef);
-
-  if (snapshot.exists()) {
-    res.json(snapshot.val());
-  } else {
-    const defaultData = { balance: 0, level: 1, xp: 0 };
-    await set(userRef, defaultData);
-    res.json(defaultData);
-  }
-});
-
-// ✅ ================================
-// ✅ /api/updateXP
-// ✅ Example XP update route for your game
-// ✅ ================================
-app.post('/api/updateXP', async (req, res) => {
-  const { userId, xp, balance } = req.body;
-  if (!userId) return res.status(400).send('Missing userId.');
-
-  const userRef = ref(db, `users/${userId}`);
-  const snapshot = await get(userRef);
-  const old = snapshot.exists() ? snapshot.val() : { xp: 0, balance: 0, level: 1 };
-
-  const newXP = old.xp + xp;
-  const newBalance = old.balance + balance;
-  const newLevel = Math.floor(newXP / 100) + 1;
-
-  await update(userRef, {
-    xp: newXP,
-    balance: newBalance,
-    level: newLevel
-  });
-
-  res.json({ xp: newXP, balance: newBalance, level: newLevel });
-});
-
-// ✅ Start Express
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () =>
-  console.log(`✅ Express API running on http://localhost:${PORT}`)
-);
-
-// ✅ Bot login
-bot.login(process.env.token);
-
-// ✅ Safety
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-});
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection:', promise, 'reason:', reason);
-});
+  <script src="main.js"></script>
+</body>
+</html>
