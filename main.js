@@ -23,18 +23,19 @@ import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/fire
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// ✅ Check if inside an iframe (like Discord embed)
+// ✅ If embedded, show Open in Browser instead
 if (window.self !== window.top) {
-  console.log("✅ Detected inside an iframe. Showing Open in Browser message.");
+  console.log("✅ Inside an iframe (Discord embed). Showing Open in Browser message.");
   document.getElementById('login').innerHTML = `
     <h2>This game needs to open in your browser</h2>
     <a href="${REDIRECT_URI}" target="_blank" style="color:lime; font-size:1.2em;">Open in Browser</a>
   `;
 } else {
-  // ✅ Normal mode — attach Sign In button handler
+  // ✅ Normal — set up Sign In
   const loginBtn = document.getElementById('loginBtn');
+  const realOAuthLink = document.getElementById('realOAuthLink');
 
-  if (loginBtn) {
+  if (loginBtn && realOAuthLink) {
     loginBtn.onclick = () => {
       console.log("✅ Sign In button clicked!");
 
@@ -46,11 +47,11 @@ if (window.self !== window.top) {
 
       console.log("✅ OAuth URL:", oauthURL);
 
-      // ✅ Open in new tab
-      window.open(oauthURL, '_blank');
+      realOAuthLink.href = oauthURL;
+      realOAuthLink.click();
     };
   } else {
-    console.error("❌ Could not find button with id='loginBtn'.");
+    console.error("❌ Could not find login button or realOAuthLink!");
   }
 }
 
