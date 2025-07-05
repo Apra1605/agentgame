@@ -2,23 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Agent X HQ</title>
+  <title>Agent Game</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; color: #fff; }
+    body { margin: 0; background: #000; color: #fff; }
     #login {
       position: absolute; top: 40%; left: 50%;
       transform: translate(-50%, -50%); text-align: center;
     }
-    input {
-      display: block;
-      margin: 10px auto;
-      padding: 8px;
-    }
-    button {
-      padding: 12px 24px;
-      font-size: 1em;
-    }
+    input { display: block; margin: 10px auto; padding: 8px; }
+    button { padding: 12px 24px; font-size: 1em; }
     #gameContainer { display: none; }
     #infoBox {
       position: absolute; top: 10px; right: 10px;
@@ -29,14 +22,14 @@
 </head>
 <body>
   <div id="login">
-    <h2>Log in to play</h2>
+    <h2>Login to Play</h2>
     <input type="text" id="usernameInput" placeholder="Username" />
     <input type="password" id="passwordInput" placeholder="Password" />
     <button id="loginBtn">Log In</button>
-    <div id="loginError" style="color: red; margin-top: 10px;"></div>
+    <div id="loginError" style="color:red; margin-top:10px;"></div>
   </div>
 
-  <div id="infoBox" style="display: none;"></div>
+  <div id="infoBox" style="display:none;"></div>
   <div id="gameContainer"></div>
 
   <script type="module" src="main.js"></script>
