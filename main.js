@@ -1,76 +1,51 @@
-console.log("✅ main.js is running");
-
-// ✅ Your Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyDmnk1IjJQQc9ksYluffJ_o0i4U_DSlTQ4",
-  authDomain: "newagent-lfgn.firebaseapp.com",
-  databaseURL: "https://newagent-lfgn-default-rtdb.firebaseio.com",
-  projectId: "newagent-lfgn",
-  storageBucket: "newagent-lfgn.appspot.com",
-  messagingSenderId: "363511493070",
-  appId: "1:363511493070:web:81f113614b622963f0fb9f"
-};
-
-// ✅ Init Firebase
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-import { getDatabase, ref, get, update, child } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+console.log("✅ main.js running");
 
 const loginBtn = document.getElementById('loginBtn');
 
-if (loginBtn) {
-  loginBtn.onclick = async () => {
-    const username = document.getElementById('usernameInput').value.trim();
-    const password = document.getElementById('passwordInput').value.trim();
+loginBtn.onclick = async () => {
+  const username = document.getElementById('usernameInput').value.trim();
+  const password = document.getElementById('passwordInput').value.trim();
 
-    console.log("✅ Attempting login for:", username);
+  console.log("🔑 Logging in with:", username);
 
-    if (!username || !password) {
-      showError("Please enter both username and password.");
+  if (!username || !password) {
+    showError("Please enter both fields.");
+    return;
+  }
+
+  try {
+    const res = await fetch("https://YOUR-BOT-DOMAIN/api/login", {
+      method: "POST",
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (!res.ok) {
+      showError("Invalid username or password.");
       return;
     }
 
-    try {
-      const snapshot = await get(ref(db, 'users/'));
-      if (snapshot.exists()) {
-        const users = snapshot.val();
-        let found = false;
+    const data = await res.json();
+    console.log("✅ Login success:", data);
 
-        for (const userId in users) {
-          const user = users[userId];
-          if (user.username === username && user.password === password) {
-            console.log(`✅ Login success for userId: ${userId}`);
-            found = true;
-            document.getElementById('login').style.display = 'none';
-            const infoBox = document.getElementById('infoBox');
-            infoBox.innerText = `Logged in as: ${username}\nXP: ${user.xp}\nBalance: ${user.balance}\nLevel: ${user.level}`;
-            infoBox.style.display = 'block';
-            startGame(userId, infoBox, user);
-            break;
-          }
-        }
+    document.getElementById('login').style.display = 'none';
+    const infoBox = document.getElementById('infoBox');
+    infoBox.style.display = 'block';
+    infoBox.innerText = `User: ${data.username}\nXP: ${data.xp}\nBalance: ${data.balance}\nLevel: ${data.level}`;
 
-        if (!found) {
-          showError("Invalid username or password.");
-        }
-      } else {
-        showError("No users found in database.");
-      }
-    } catch (err) {
-      console.error(err);
-      showError("Error while logging in.");
-    }
-  };
-}
+    startGame(data.userId, infoBox, data);
+  } catch (err) {
+    console.error(err);
+    showError("Server error.");
+  }
+};
 
 function showError(msg) {
   document.getElementById('loginError').innerText = msg;
 }
 
 function startGame(userId, infoBox, userData) {
-  console.log("✅ Starting Phaser game...");
+  console.log("✅ Starting Phaser...");
 
   const config = {
     type: Phaser.AUTO,
@@ -80,6 +55,7 @@ function startGame(userId, infoBox, userData) {
     physics: { default: 'arcade', arcade: { debug: false } },
     scene: { preload, create, update }
   };
+
   const game = new Phaser.Game(config);
 
   let player, cursors;
@@ -95,24 +71,18 @@ function startGame(userId, infoBox, userData) {
     const completeBtn = this.add.text(20, 20, '✅ Complete Mission', { fill: '#0f0' })
       .setInteractive()
       .on('pointerdown', async () => {
-        const userRef = ref(db, `users/${userId}`);
-        const newXP = userData.xp + 10;
-        const newBalance = userData.balance + 5;
-        const newLevel = Math.floor(newXP / 100) + 1;
-
-        userData.xp = newXP;
-        userData.balance = newBalance;
-        userData.level = newLevel;
-
-        await update(userRef, {
-          xp: newXP,
-          balance: newBalance,
-          level: newLevel
+        const res = await fetch("https://YOUR-BOT-DOMAIN/api/complete", {
+          method: "POST",
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
         });
 
-        infoBox.innerText = `Logged in as: ${userData.username}\nXP: ${newXP}\nBalance: ${newBalance}\nLevel: ${newLevel}`;
+        const updated = await res.json();
+        userData.xp = updated.xp;
+        userData.balance = updated.balance;
+        userData.level = updated.level;
 
-        console.log("✅ Mission complete — Firebase updated!");
+        infoBox.innerText = `User: ${userData.username}\nXP: ${userData.xp}\nBalance: ${userData.balance}\nLevel: ${userData.level}`;
       });
 
     document.getElementById('gameContainer').style.display = 'block';
