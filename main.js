@@ -1,10 +1,5 @@
 console.log("✅ main.js is running");
 
-// ✅ Your Discord App details
-const CLIENT_ID = '1389447739737378886';
-const REDIRECT_URI = 'https://apra1605.github.io/agentgame/';
-const SCOPES = ['identify'];
-
 // ✅ Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyDmnk1IjJQQc9ksYluffJ_o0i4U_DSlTQ4",
@@ -18,94 +13,61 @@ const firebaseConfig = {
 
 // ✅ Init Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+import { getDatabase, ref, get, update, child } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// ✅ If embedded, show Open in Browser instead
-if (window.self !== window.top) {
-  console.log("✅ Inside an iframe (Discord embed). Showing Open in Browser message.");
-  document.getElementById('login').innerHTML = `
-    <h2>This game needs to open in your browser</h2>
-    <a href="${REDIRECT_URI}" target="_blank" style="color:lime; font-size:1.2em;">Open in Browser</a>
-  `;
-} else {
-  // ✅ Normal — set up Sign In
-  const loginBtn = document.getElementById('loginBtn');
-  const realOAuthLink = document.getElementById('realOAuthLink');
+const loginBtn = document.getElementById('loginBtn');
 
-  if (loginBtn && realOAuthLink) {
-    loginBtn.onclick = () => {
-      console.log("✅ Sign In button clicked!");
+if (loginBtn) {
+  loginBtn.onclick = async () => {
+    const username = document.getElementById('usernameInput').value.trim();
+    const password = document.getElementById('passwordInput').value.trim();
 
-      const oauthURL = `https://discord.com/api/oauth2/authorize` +
-        `?client_id=${CLIENT_ID}` +
-        `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-        `&response_type=token` +
-        `&scope=${SCOPES.join('%20')}`;
+    console.log("✅ Attempting login for:", username);
 
-      console.log("✅ OAuth URL:", oauthURL);
-
-      realOAuthLink.href = oauthURL;
-      realOAuthLink.click();
-    };
-  } else {
-    console.error("❌ Could not find login button or realOAuthLink!");
-  }
-}
-
-window.onload = async () => {
-  console.log("✅ Window loaded. Checking for #access_token in URL...");
-
-  const hash = window.location.hash;
-
-  if (hash.includes('access_token')) {
-    console.log("✅ Access token found in URL!");
-
-    const params = new URLSearchParams(hash.substr(1));
-    const accessToken = params.get('access_token');
-
-    console.log("✅ Using access token:", accessToken);
-
-    const userRes = await fetch('https://discord.com/api/users/@me', {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-
-    const user = await userRes.json();
-    const userId = user.id;
-    const username = `${user.username}`;
-
-    console.log(`✅ Logged in as: ${username} (${userId})`);
-
-    // Hide login, show game UI
-    document.getElementById('login').style.display = 'none';
-
-    const infoBox = document.getElementById('infoBox');
-    infoBox.innerText = `Logged in as: ${username}\nID: ${userId}`;
-    infoBox.style.display = 'block';
-
-    // Check or create user in Firebase
-    const userRef = ref(db, `users/${userId}`);
-    const snapshot = await get(userRef);
-    let userData;
-
-    if (snapshot.exists()) {
-      console.log("✅ Existing user found in Firebase:", snapshot.val());
-      userData = snapshot.val();
-    } else {
-      console.log("✅ Creating new user in Firebase...");
-      userData = { xp: 0, balance: 0, level: 1 };
-      await set(userRef, userData);
+    if (!username || !password) {
+      showError("Please enter both username and password.");
+      return;
     }
 
-    infoBox.innerText = `User: ${username}\nXP: ${userData.xp}\nBalance: ${userData.balance}\nLevel: ${userData.level}`;
+    try {
+      const snapshot = await get(ref(db, 'users/'));
+      if (snapshot.exists()) {
+        const users = snapshot.val();
+        let found = false;
 
-    startGame(userId, infoBox, userData);
-  } else {
-    console.log("✅ No access_token in URL yet.");
-  }
-};
+        for (const userId in users) {
+          const user = users[userId];
+          if (user.username === username && user.password === password) {
+            console.log(`✅ Login success for userId: ${userId}`);
+            found = true;
+            document.getElementById('login').style.display = 'none';
+            const infoBox = document.getElementById('infoBox');
+            infoBox.innerText = `Logged in as: ${username}\nXP: ${user.xp}\nBalance: ${user.balance}\nLevel: ${user.level}`;
+            infoBox.style.display = 'block';
+            startGame(userId, infoBox, user);
+            break;
+          }
+        }
+
+        if (!found) {
+          showError("Invalid username or password.");
+        }
+      } else {
+        showError("No users found in database.");
+      }
+    } catch (err) {
+      console.error(err);
+      showError("Error while logging in.");
+    }
+  };
+}
+
+function showError(msg) {
+  document.getElementById('loginError').innerText = msg;
+}
 
 function startGame(userId, infoBox, userData) {
   console.log("✅ Starting Phaser game...");
@@ -148,7 +110,7 @@ function startGame(userId, infoBox, userData) {
           level: newLevel
         });
 
-        infoBox.innerText = `User: ${userId}\nXP: ${newXP}\nBalance: ${newBalance}\nLevel: ${newLevel}`;
+        infoBox.innerText = `Logged in as: ${userData.username}\nXP: ${newXP}\nBalance: ${newBalance}\nLevel: ${newLevel}`;
 
         console.log("✅ Mission complete — Firebase updated!");
       });
