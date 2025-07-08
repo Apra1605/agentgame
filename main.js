@@ -14,7 +14,7 @@ loginBtn.onclick = async () => {
   }
 
   try {
-    const res = await fetch("https://YOUR-BOT-DOMAIN/api/login", {
+    const res = await fetch("https://YOUR-BOT-HOST/api/login", {
       method: "POST",
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -71,7 +71,7 @@ function startGame(userId, infoBox, userData) {
     const completeBtn = this.add.text(20, 20, '✅ Complete Mission', { fill: '#0f0' })
       .setInteractive()
       .on('pointerdown', async () => {
-        const res = await fetch("https://YOUR-BOT-DOMAIN/api/complete", {
+        const res = await fetch("https://YOUR-BOT-HOST/api/complete", {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId })
