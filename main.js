@@ -3,37 +3,48 @@ console.log("✅ main.js running");
 const loginBtn = document.getElementById('loginBtn');
 
 loginBtn.onclick = async () => {
-  const username = document.getElementById('usernameInput').value.trim();
-  const password = document.getElementById('passwordInput').value.trim();
+  const usernameInput = document.getElementById('usernameInput').value.trim();
+  const passwordInput = document.getElementById('passwordInput').value.trim();
 
-  console.log("🔑 Logging in with:", username);
+  console.log("🔑 Logging in with:", usernameInput);
 
-  if (!username || !password) {
+  if (!usernameInput || !passwordInput) {
     showError("Please enter both fields.");
     return;
   }
 
   try {
-    const res = await fetch("https://agent-discord-4667c1c402f3.herokuapp.com/api/login", {
-      method: "POST",
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
+    // ✅ Use proxy path to Firebase DB
+    const res = await fetch("/db/users.json");
+    const users = await res.json();
 
-    if (!res.ok) {
+    let found = null;
+
+    for (const userId in users) {
+      const u = users[userId];
+      // check username match case-insensitive
+      if (u.username && u.username.toLowerCase() === usernameInput.toLowerCase()) {
+        if (u.password === passwordInput) {
+          found = { userId, ...u };
+          break;
+        }
+      }
+    }
+
+    if (!found) {
       showError("Invalid username or password.");
       return;
     }
 
-    const data = await res.json();
-    console.log("✅ Login success:", data);
+    console.log("✅ Login success:", found);
 
     document.getElementById('login').style.display = 'none';
     const infoBox = document.getElementById('infoBox');
     infoBox.style.display = 'block';
-    infoBox.innerText = `User: ${data.username}\nXP: ${data.xp}\nBalance: ${data.balance}\nLevel: ${data.level}`;
+    infoBox.innerText = `User: ${found.username}\nXP: ${found.xp}\nBalance: ${found.balance}\nLevel: ${found.level}`;
 
-    startGame(data.userId, infoBox, data);
+    startGame(found.userId, infoBox, found);
+
   } catch (err) {
     console.error(err);
     showError("Server error. Check console.");
@@ -71,18 +82,26 @@ function startGame(userId, infoBox, userData) {
     const completeBtn = this.add.text(20, 20, '✅ Complete Mission', { fill: '#0f0' })
       .setInteractive()
       .on('pointerdown', async () => {
-        const res = await fetch("https://agent-discord-4667c1c402f3.herokuapp.com/api/complete", {
-          method: "POST",
+        // ✅ Use proxy path for PATCH
+        const newXP = (userData.xp || 0) + 10;
+        const newBalance = (userData.balance || 0) + 5;
+        const newLevel = Math.floor(newXP / 100) + 1;
+
+        userData.xp = newXP;
+        userData.balance = newBalance;
+        userData.level = newLevel;
+
+        await fetch(`/db/users/${userId}.json`, {
+          method: "PATCH",
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
+          body: JSON.stringify({
+            xp: newXP,
+            balance: newBalance,
+            level: newLevel
+          })
         });
 
-        const updated = await res.json();
-        userData.xp = updated.xp;
-        userData.balance = updated.balance;
-        userData.level = updated.level;
-
-        infoBox.innerText = `User: ${userData.username}\nXP: ${userData.xp}\nBalance: ${userData.balance}\nLevel: ${userData.level}`;
+        infoBox.innerText = `User: ${userData.username}\nXP: ${newXP}\nBalance: ${newBalance}\nLevel: ${newLevel}`;
       });
 
     document.getElementById('gameContainer').style.display = 'block';
