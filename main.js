@@ -14,17 +14,25 @@ loginBtn.onclick = async () => {
   }
 
   try {
-    // ✅ Use proxy path to Firebase DB
-    const res = await fetch("/db/users.json");
+    // Detect sandbox: Discord embed = window !== parent
+    const isSandboxed = window.location !== window.parent.location;
+    const dbPrefix = isSandboxed ? "/db" : "https://newagent-lfgn-default-rtdb.firebaseio.com";
+
+    console.log("🌐 Using DB Prefix:", dbPrefix);
+
+    // Pull all users
+    const res = await fetch(`${dbPrefix}/users.json`);
     const users = await res.json();
 
     let found = null;
 
     for (const userId in users) {
       const u = users[userId];
-      // check username match case-insensitive
-      if (u.username && u.username.toLowerCase() === usernameInput.toLowerCase()) {
-        if (u.password === passwordInput) {
+      if (u.missions && u.missions.username && u.missions.password) {
+        if (
+          u.missions.username.toLowerCase() === usernameInput.toLowerCase() &&
+          u.missions.password === passwordInput
+        ) {
           found = { userId, ...u };
           break;
         }
@@ -39,9 +47,15 @@ loginBtn.onclick = async () => {
     console.log("✅ Login success:", found);
 
     document.getElementById('login').style.display = 'none';
+
     const infoBox = document.getElementById('infoBox');
     infoBox.style.display = 'block';
-    infoBox.innerText = `User: ${found.username}\nXP: ${found.xp}\nBalance: ${found.balance}\nLevel: ${found.level}`;
+    infoBox.innerText = `
+      User: ${found.missions.username}
+      XP: ${found.xp || 0}
+      Balance: ${found.balance || 0}
+      Level: ${found.level || 0}
+    `.trim();
 
     startGame(found.userId, infoBox, found);
 
@@ -82,7 +96,9 @@ function startGame(userId, infoBox, userData) {
     const completeBtn = this.add.text(20, 20, '✅ Complete Mission', { fill: '#0f0' })
       .setInteractive()
       .on('pointerdown', async () => {
-        // ✅ Use proxy path for PATCH
+        const isSandboxed = window.location !== window.parent.location;
+        const dbPrefix = isSandboxed ? "/db" : "https://newagent-lfgn-default-rtdb.firebaseio.com";
+
         const newXP = (userData.xp || 0) + 10;
         const newBalance = (userData.balance || 0) + 5;
         const newLevel = Math.floor(newXP / 100) + 1;
@@ -91,7 +107,7 @@ function startGame(userId, infoBox, userData) {
         userData.balance = newBalance;
         userData.level = newLevel;
 
-        await fetch(`/db/users/${userId}.json`, {
+        await fetch(`${dbPrefix}/users/${userId}.json`, {
           method: "PATCH",
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -101,7 +117,12 @@ function startGame(userId, infoBox, userData) {
           })
         });
 
-        infoBox.innerText = `User: ${userData.username}\nXP: ${newXP}\nBalance: ${newBalance}\nLevel: ${newLevel}`;
+        infoBox.innerText = `
+          User: ${userData.missions.username}
+          XP: ${newXP}
+          Balance: ${newBalance}
+          Level: ${newLevel}
+        `.trim();
       });
 
     document.getElementById('gameContainer').style.display = 'block';
