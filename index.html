@@ -1,30 +1,255 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Agent Game</title>
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
-  <style>
-    body { margin: 0; background: #000; color: #fff; }
-    #login { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
-    input { display: block; margin: 10px auto; padding: 8px; }
-    button { padding: 12px 24px; font-size: 1em; }
-    #gameContainer { display: none; }
-    #infoBox { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); padding: 10px; border: 1px solid #fff; font-family: monospace; }
-  </style>
-</head>
-<body>
-  <div id="login">
-    <h2>Login to Play</h2>
-    <input type="text" id="usernameInput" placeholder="Username" />
-    <input type="password" id="passwordInput" placeholder="Password" />
-    <button id="loginBtn">Log In</button>
-    <div id="loginError" style="color:red; margin-top:10px;"></div>
-  </div>
+// ✅ index.js — FINAL with Express, CORS, Voice, Firebase, and Gemini
+import 'dotenv/config';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+import express from 'express';
+import cors from 'cors';
+import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
+import {
+  getVoiceConnection,
+  EndBehaviorType,
+  createAudioPlayer,
+  createAudioResource,
+  AudioPlayerStatus
+} from '@discordjs/voice';
+import prism from 'prism-media';
+import speech from '@google-cloud/speech';
+import textToSpeech from '@google-cloud/text-to-speech';
 
-  <div id="infoBox" style="display:none;"></div>
-  <div id="gameContainer"></div>
+import { db, ref, get, update } from './firebase.js';
 
-  <script type="module" src="main.js"></script>
-</body>
-</html>
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ✅ Write service account JSON if needed
+if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+  fs.writeFileSync("gcloud-key.json", process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = "gcloud-key.json";
+}
+
+// ✅ Google clients
+export const clientSTT = new speech.SpeechClient();
+export const clientTTS = new textToSpeech.TextToSpeechClient();
+
+// ✅ Express server
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// ✅ /api/login route
+app.post("/api/login", async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: "Missing username or password." });
+  }
+
+  try {
+    const snapshot = await get(ref(db, "users"));
+    let match = null;
+
+    snapshot.forEach(child => {
+      const val = child.val();
+      if (val.username && val.password &&
+        val.username.toLowerCase() === username.toLowerCase() &&
+        val.password === password) {
+        match = { id: child.key, ...val };
+      }
+    });
+
+    if (!match) {
+      return res.status(401).json({ error: "Invalid credentials." });
+    }
+
+    res.json({
+      userId: match.id,
+      username: match.username,
+      xp: match.xp || 0,
+      balance: match.balance || 0,
+      level: match.level || 1
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error." });
+  }
+});
+
+// ✅ /api/complete route
+app.post("/api/complete", async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: "Missing userId." });
+
+  try {
+    const userRef = ref(db, `users/${userId}`);
+    const snapshot = await get(userRef);
+    const data = snapshot.val();
+
+    const newXP = (data.xp || 0) + 10;
+    const newBalance = (data.balance || 0) + 5;
+    const newLevel = Math.floor(newXP / 100) + 1;
+
+    await update(userRef, { xp: newXP, balance: newBalance, level: newLevel });
+
+    res.json({ xp: newXP, balance: newBalance, level: newLevel });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error." });
+  }
+});
+
+// ✅ Start Express
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🌐 API server running on http://localhost:${PORT}`));
+
+// ✅ Discord bot
+const bot = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildPresences
+  ],
+  partials: [Partials.Message, Partials.Channel, Partials.Reaction]
+});
+
+bot.commands = new Collection();
+bot.cooldowns = new Collection();
+bot.commandArray = [];
+bot.buttons = new Collection();
+bot.selectMenus = new Collection();
+bot.modals = new Collection();
+
+const handlersPath = path.join(__dirname, 'functions/handlers');
+const handlerFiles = fs.readdirSync(handlersPath).filter(file => file.endsWith('.js'));
+for (const file of handlerFiles) {
+  const handler = await import(pathToFileURL(path.join(handlersPath, file)));
+  handler.default(bot);
+}
+
+await bot.handleCommands();
+await bot.handleEvents();
+await bot.handleComponents();
+
+let minutesUsed = 0;
+let charsUsed = 0;
+const STT_LIMIT_MINUTES = 60;
+const TTS_LIMIT_CHARS = 4_000_000;
+const THRESHOLD = 0.9;
+
+bot.on('voiceStateUpdate', (oldState, newState) => {
+  const connection = getVoiceConnection(newState.guild.id);
+  if (!connection) return;
+
+  const receiver = connection.receiver;
+
+  receiver.speaking.on('start', (userId) => {
+    console.log(`🎙️ User ${userId} is speaking.`);
+
+    const opusStream = receiver.subscribe(userId, {
+      end: { behavior: EndBehaviorType.AfterSilence, duration: 1000 },
+    });
+
+    const decoder = new prism.opus.Decoder({
+      frameSize: 960,
+      channels: 2,
+      rate: 48000,
+    });
+
+    const outputFile = `./recording-${userId}.raw`;
+    const output = fs.createWriteStream(outputFile);
+
+    opusStream.pipe(decoder).pipe(output);
+
+    output.on('finish', async () => {
+      console.log(`✅ Saved: ${outputFile}`);
+      minutesUsed += 3 / 60;
+
+      if (minutesUsed >= STT_LIMIT_MINUTES * THRESHOLD) {
+        console.log(`🚫 STT limit near. Leaving VC.`);
+        connection.destroy();
+        return;
+      }
+
+      const text = await transcribeGoogle(outputFile);
+      if (!text || text.trim() === '' || text === 'Could not transcribe.') {
+        console.log('📝: (no transcribable speech)');
+        return;
+      }
+      console.log(`📝: ${text}`);
+
+      const systemPrompt = `You are AGENT, a helpful, safe AI assistant for Discord.`;
+      const fullPrompt = `${systemPrompt}\nUser: ${text}`;
+
+      const reply = await askGemini(fullPrompt);
+      console.log(`🤖: ${reply}`);
+
+      charsUsed += reply.length;
+      if (charsUsed >= TTS_LIMIT_CHARS * THRESHOLD) {
+        console.log(`🚫 TTS limit near. Leaving VC.`);
+        connection.destroy();
+        return;
+      }
+
+      await speakToVC(newState.guild.id, reply);
+    });
+  });
+});
+
+bot.login(process.env.token);
+
+async function transcribeGoogle(filepath) {
+  const file = fs.readFileSync(filepath);
+  const audioBytes = file.toString('base64');
+  const request = {
+    audio: { content: audioBytes },
+    config: { encoding: 'LINEAR16', sampleRateHertz: 48000, languageCode: 'en-US' },
+  };
+  const [response] = await clientSTT.recognize(request);
+  return response.results.map(r => r.alternatives[0].transcript).join('\n') || 'Could not transcribe.';
+}
+
+async function askGemini(prompt) {
+  const fetch = (await import('node-fetch')).default;
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 1.0 } }),
+    }
+  );
+  const data = await res.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || "No answer.";
+}
+
+async function speakToVC(guildId, text) {
+  const connection = getVoiceConnection(guildId);
+  if (!connection) return console.log('❌ No VC.');
+
+  const request = {
+    input: { text },
+    voice: { languageCode: 'en-US', ssmlGender: 'NEUTRAL' },
+    audioConfig: { audioEncoding: 'MP3' },
+  };
+
+  const [response] = await clientTTS.synthesizeSpeech(request);
+  const outputFile = 'tts-output.mp3';
+  fs.writeFileSync(outputFile, response.audioContent, 'binary');
+
+  const player = createAudioPlayer();
+  const resource = createAudioResource(outputFile);
+
+  connection.subscribe(player);
+  player.play(resource);
+
+  player.on(AudioPlayerStatus.Idle, () => {
+    console.log('✅ TTS done.');
+  });
+}
+
+process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
+process.on('unhandledRejection', (reason, promise) => console.error('Unhandled Rejection:', promise, 'reason:', reason));
