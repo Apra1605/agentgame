@@ -14,7 +14,7 @@ loginBtn.onclick = async () => {
   }
 
   try {
-    const res = await fetch("https://YOUR-BOT-HOST/api/login", {
+    const res = await fetch("https://agent-discord-4667e1c402f3.herokuapp.com/", {
       method: "POST",
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
